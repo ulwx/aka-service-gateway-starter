@@ -1,21 +1,23 @@
 package com.github.ulwx.aka.gateway.filters.auth.localstore.redis;
 
+import com.github.ulwx.aka.dbutils.springboot.redis.AkaRedisUtils;
 import com.github.ulwx.aka.gateway.filters.auth.TokenService;
 import com.github.ulwx.aka.gateway.filters.auth.UserTokenInfo;
 import com.github.ulwx.aka.gateway.filters.utils.RedisUtils;
 import com.ulwx.tool.ObjectUtils;
 import com.ulwx.tool.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
 @Component("com.github.ulwx.aka.gateway.filters.auth.localstore.redis.RedisTokenService")
 public class RedisTokenService implements TokenService {
-    //public final static RedisTokenService x=new RedisTokenService();
     public final static String prefx_rft ="token_rft";
     public final static String prefx_usr ="token_usr";
-    @Autowired
     private RedisUtils redisUtils;
+    public RedisTokenService(ObjectProvider<RedisUtils> redisUtils){
+        this.redisUtils=redisUtils.getIfAvailable();
+    }
 
     public RedisUtils getRedisUtils() {
         return redisUtils;
@@ -33,10 +35,10 @@ public class RedisTokenService implements TokenService {
     }
 
     private void removeTokenInfo(String userId,String refreshToken) {
-
-        redisUtils.sRemove(prefx_usr(userId),refreshToken);
-        redisUtils.del(prefx_rft(refreshToken));
-        redisUtils.del(prefx_rft(refreshToken)+"@");
+        AkaRedisUtils akaRedisUtils=redisUtils.getAkaRedisUtils();
+        akaRedisUtils.sRemove(prefx_usr(userId),refreshToken);
+        akaRedisUtils.del(prefx_rft(refreshToken));
+        akaRedisUtils.del(prefx_rft(refreshToken)+"@");
     }
 
     @Override
@@ -50,39 +52,39 @@ public class RedisTokenService implements TokenService {
             Set<String> refreshTokens = getRefreshTokensBy(userId);
             for (String refreshTk : refreshTokens) {
                 UserTokenInfo userTokenInfo = queryTokenInfoBy(refreshTk);
-                if (userTokenInfo != null) {
-                    if (StringUtils.hasText(sourceId)) {
-                        if (userTokenInfo.getSource().equals(sourceId)) {
-                            removeTokenInfo(userId,refreshToken);
-                            break;
-                        }
-                    }else{
-                        removeTokenInfo(userId,refreshToken);
+                if (StringUtils.hasText(sourceId)) {
+                    if (userTokenInfo!=null &&
+                            userTokenInfo.getSource().equals(sourceId)) {
+                        removeTokenInfo(userId,refreshTk);
+                        break;
                     }
-                }else {
-                    removeTokenInfo(userId,refreshToken);
+                }else{
+                    removeTokenInfo(userId,refreshTk);
                 }
+
             }
         }
     }
     private Set<String> getRefreshTokensBy(String userId) {
+        AkaRedisUtils akaRedisUtils=redisUtils.getAkaRedisUtils();
         String key= prefx_usr(userId);
-        Set<String> set= redisUtils.sGet(key);
+        Set<String> set= akaRedisUtils.sGet(key);
         return set;
     }
 
     @Override
     public void storeTokenInfo(UserTokenInfo userTokenInfo) {
         String str=ObjectUtils.toStringUseFastJson(userTokenInfo);
-        redisUtils.set(prefx_rft(userTokenInfo.getRefreshToken()), str,userTokenInfo.getRefreshTokenTtl());
-        redisUtils.set(prefx_rft(userTokenInfo.getRefreshToken())+"@",userTokenInfo.getUserid()
-                ,-1);
+        AkaRedisUtils akaRedisUtils=redisUtils.getAkaRedisUtils();
+        akaRedisUtils.set(prefx_rft(userTokenInfo.getRefreshToken()), str , userTokenInfo.getRefreshTokenTtl());
+        akaRedisUtils.set(prefx_rft(userTokenInfo.getRefreshToken())+"@", userTokenInfo.getUserid(),-1);
         String tokenkey= prefx_usr(userTokenInfo.getUserid());
-        redisUtils.sSet(tokenkey,userTokenInfo.getRefreshToken());
+        akaRedisUtils.sSet(tokenkey,userTokenInfo.getRefreshToken());
     }
     @Override
    public UserTokenInfo queryTokenInfoBy(String refreshToken) {
-        String str=redisUtils.get(prefx_rft(refreshToken));
+        AkaRedisUtils akaRedisUtils=redisUtils.getAkaRedisUtils();
+        String str=akaRedisUtils.get(prefx_rft(refreshToken));
         if(StringUtils.isEmpty(str)){
             return null;
         }
@@ -91,9 +93,10 @@ public class RedisTokenService implements TokenService {
     }
     @Override
     public void refreshTokenExpired(String refreshToken){
-        String urserId=redisUtils.get(prefx_rft(refreshToken)+"@");
-        redisUtils.sRemove(prefx_usr(urserId),refreshToken);
-        redisUtils.del(prefx_rft(refreshToken)+"@");
+        AkaRedisUtils akaRedisUtils=redisUtils.getAkaRedisUtils();
+        String urserId=akaRedisUtils.get(prefx_rft(refreshToken)+"@");
+        akaRedisUtils.sRemove(prefx_usr(urserId),refreshToken);
+        akaRedisUtils.del(prefx_rft(refreshToken)+"@");
 
     }
 

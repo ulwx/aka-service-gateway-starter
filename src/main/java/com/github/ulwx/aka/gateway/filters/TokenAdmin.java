@@ -4,9 +4,8 @@ import com.github.ulwx.aka.gateway.AkaGatewayProperties;
 import com.github.ulwx.aka.gateway.filters.auth.TokenServiceFactory;
 import com.github.ulwx.aka.gateway.filters.auth.UserTokenInfo;
 import com.github.ulwx.aka.gateway.filters.utils.JwtHelper;
-import com.github.ulwx.aka.gateway.filters.utils.TokenInfo;
 import com.ulwx.tool.CTime;
-import com.ulwx.tool.RandomUtils;
+import com.ulwx.tool.ObjectUtils;
 import com.ulwx.tool.StringUtils;
 import com.ulwx.type.TResult;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +19,8 @@ public class TokenAdmin {
     private TokenServiceFactory tokenServiceFactory;
 
     public Tokens newTokens(TokenInfo tokenInfo,
-                            AkaGatewayProperties.FilterConfig filterConfig){
+                            AkaGatewayProperties.FilterConfig filterConfig,
+                            AkaGatewayProperties.StoreConfig storeConfig){
         Tokens tokens=new Tokens();
         String tokenType = StringUtils.trim(filterConfig.getVerifyConfig().getTokenType());
         if (tokenType.equals(TokenType.jwt.toString())) {
@@ -31,8 +31,11 @@ public class TokenAdmin {
                 tokenInfo.setExpiredAt(CTime.addSenconds(expiretime));
             }
             String jwtToken= JwtHelper.createJWT(tokenInfo,key);
-            String refreshToken= RandomUtils.genUID();
             tokens.setAccessToken(jwtToken);
+            //生成refresh_token
+            TokenInfo refreshTokenInfo= ObjectUtils.CloneWithDeep(tokenInfo);
+            refreshTokenInfo.setExpiredAt(CTime.addMonths(12));//12个月，实际按refreshExpiredTime校验
+            String refreshToken= JwtHelper.createJWT(refreshTokenInfo,key);
             tokens.setRefreshToken(refreshToken);
             //保存token
             UserTokenInfo userTokenInfo=new UserTokenInfo();
@@ -44,7 +47,7 @@ public class TokenAdmin {
             userTokenInfo.setRefreshTokenTtl(refreshExpiredTime);
             userTokenInfo.setTokenType(TokenType.jwt);
             userTokenInfo.setSource(tokenInfo.getSource());
-            tokenServiceFactory.storeTokenInfo(filterConfig.getStoreConfig(),userTokenInfo);
+            tokenServiceFactory.storeTokenInfo(storeConfig,userTokenInfo);
         }else{ //其他token类型
 
         }
@@ -52,8 +55,8 @@ public class TokenAdmin {
         return tokens;
     }
 
-    public boolean verifyToken(AkaGatewayProperties.FilterConfig filterConfig, String accessToken,
-                               TResult<TokenInfo> result ){
+    public boolean verifyAccessToken(AkaGatewayProperties.FilterConfig filterConfig, String accessToken,
+                                     TResult<TokenInfo> result ){
         String tokenType = StringUtils.trim(filterConfig.getVerifyConfig().getTokenType());
         if (tokenType.equals(TokenType.jwt.toString())) {
             String secret = filterConfig.getVerifyConfig().getSecret();
@@ -66,54 +69,66 @@ public class TokenAdmin {
         }
         return true;
     }
-    public Tokens newAccessToken(
-                                 TokenInfo tokenInfo,
-                                 String refreshToken,
-                                 AkaGatewayProperties.FilterConfig filterConfig){
-        Tokens tokens=new Tokens();
+
+    public boolean verifyRefreshToken(String refreshToken,
+                                      AkaGatewayProperties.FilterConfig filterConfig,
+                                      AkaGatewayProperties.StoreConfig storeConfig,
+                                      TResult<UserTokenInfo> UserTokenInfo){
         String tokenType = StringUtils.trim(filterConfig.getVerifyConfig().getTokenType());
         if (tokenType.equals(TokenType.jwt.toString())) {
             //检测refreshToken是否超时
-            UserTokenInfo userTokenInfo=null;
-
-            userTokenInfo =tokenServiceFactory.queryTokenInfoBy(filterConfig.getStoreConfig(),refreshToken) ;
-
-            if(userTokenInfo==null || CTime.getDate().after(userTokenInfo.getRefreshTokenExpireTime())){ //已经过期
-                throw new GateWayException(ResponseCode.REFRESH_TOKEN_INVALID);
-            }else{
-                String key=filterConfig.getVerifyConfig().getSecret();
-                Integer expiretime=filterConfig.getVerifyConfig().getAccessToken().getExpire();
-                Integer refreshExpiredTime=filterConfig.getVerifyConfig().getRefreshToken().getExpire();
-                if(tokenInfo.getExpiredAt()==null){
-                    tokenInfo.setExpiredAt(CTime.addSenconds(expiretime));
-                }
-                //生成access_token
-                String jwtToken= JwtHelper.createJWT(tokenInfo,key);
-
-                tokens.setAccessToken(jwtToken);
-                tokens.setRefreshToken(refreshToken);
-                //保存token
-                userTokenInfo.setTokenInfo(tokenInfo);
-                userTokenInfo.setAccessToken(jwtToken);
-                userTokenInfo.setRefreshToken(refreshToken);
-                userTokenInfo.setAccessTokenTtl(expiretime);
-                //延长refreshToken的时间
-                userTokenInfo.setRefreshTokenTtl(refreshExpiredTime);
-                userTokenInfo.setTokenType(TokenType.jwt);
-                userTokenInfo.setSource(tokenInfo.getSource());
-                tokenServiceFactory.storeTokenInfo(filterConfig.getStoreConfig(),userTokenInfo);
+            UserTokenInfo userTokenInfo = tokenServiceFactory.queryTokenInfoBy(storeConfig, refreshToken);
+            UserTokenInfo.setValue(userTokenInfo);
+            if (userTokenInfo == null || CTime.getDate().after(userTokenInfo.getRefreshTokenExpireTime())) { //已经过期
+                return false;
             }
+        }
+        return true;
+    }
+    public Tokens newAccessToken(
+                                // TokenInfo tokenInfo,
+                                 String refreshToken,
+                                 AkaGatewayProperties.FilterConfig filterConfig,
+                                 AkaGatewayProperties.StoreConfig storeConfig){
 
+        Tokens tokens=new Tokens();
+        TResult<UserTokenInfo> tUserTokenInfo=new TResult<>();
+        boolean isValid=this.verifyRefreshToken(refreshToken, filterConfig,storeConfig,tUserTokenInfo);
+        UserTokenInfo userTokenInfo=tUserTokenInfo.getValue();
+        if(isValid) {
+            String key = filterConfig.getVerifyConfig().getSecret();
+            Integer expiretime = filterConfig.getVerifyConfig().getAccessToken().getExpire();
+            Integer refreshExpiredTime = filterConfig.getVerifyConfig().getRefreshToken().getExpire();
+            TokenInfo tokenInfo= JwtHelper.decode(refreshToken);
+            tokenInfo.setExpiredAt(CTime.addSenconds(expiretime));
+            //生成access_token
+            String jwtToken = JwtHelper.createJWT(tokenInfo, key);
+
+            tokens.setAccessToken(jwtToken);
+            tokens.setRefreshToken(refreshToken);
+            //保存token
+            userTokenInfo.setTokenInfo(tokenInfo);
+            userTokenInfo.setAccessToken(jwtToken);
+            userTokenInfo.setRefreshToken(refreshToken);
+            userTokenInfo.setAccessTokenTtl(expiretime);
+            //延长refreshToken的时间
+            userTokenInfo.setRefreshTokenTtl(refreshExpiredTime);
+            userTokenInfo.setTokenType(TokenType.jwt);
+            userTokenInfo.setSource(tokenInfo.getSource());
+            tokenServiceFactory.storeTokenInfo(storeConfig, userTokenInfo);
+        }else{
+            throw new GateWayException(ResponseCode.REFRESH_TOKEN_INVALID);
         }
         return tokens;
 
     }
 
     public void removeToken(AkaGatewayProperties.FilterConfig filterConfig,
+                            AkaGatewayProperties.StoreConfig storeConfig,
             Tokens tokens,LogoutCondition logoutInfo ){
         String tokenType = StringUtils.trim(filterConfig.getVerifyConfig().getTokenType());
         if (tokenType.equals(TokenType.jwt.toString())) {
-            tokenServiceFactory.removeToken(filterConfig.getStoreConfig(), tokens, logoutInfo);
+            tokenServiceFactory.removeToken(storeConfig, tokens, logoutInfo);
         }
     }
 

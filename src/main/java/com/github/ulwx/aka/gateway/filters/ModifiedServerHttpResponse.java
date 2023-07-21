@@ -64,11 +64,11 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.O
         this.modifyFunction= (webExchange,body)->{
             String ret=null;
             try {
-                log.debug("=============");
+                log.debug("before=============");
                 log.debug(body);
                 log.debug("=============");
                 ret = function.apply((String) body);
-                log.debug("+++++++++++++");
+                log.debug("after+++++++++++++");
                 log.debug(ret);
                 log.debug("+++++++++++++");
                 if (ret == null) {

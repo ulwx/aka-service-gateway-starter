@@ -2,9 +2,6 @@ package com.github.ulwx.aka.gateway.filters;
 
 import com.alibaba.fastjson.JSON;
 import com.github.ulwx.aka.gateway.AkaGatewayProperties;
-import com.github.ulwx.aka.gateway.filters.auth.TokenServiceFactory;
-import com.github.ulwx.aka.gateway.filters.utils.JwtHelper;
-import com.github.ulwx.aka.gateway.filters.utils.TokenInfo;
 import com.ulwx.tool.*;
 import com.ulwx.type.TResult;
 import org.apache.log4j.Logger;
@@ -26,7 +23,6 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -41,11 +37,14 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
     @Autowired
     private TokenAdmin tokenAdmin;
 
-    private Tokens fetchTokens(ServerHttpRequest serverHttpRequest, AkaGatewayProperties.FilterConfig filterConfig) {
-        String paramIn = filterConfig.getVerifyConfig().getTokenInRequest();
+    private Tokens fetchTokens(ServerHttpRequest serverHttpRequest,
+                               AkaGatewayProperties.FilterConfig filterConfig) {
+
+        log.trace("AkaGlobalFilter start");
+        String paramIn = filterConfig.getVerifyConfig().getTokenInRequest().getIn();
         String refreshTokenParamName = filterConfig.getVerifyConfig().getRefreshToken().getParamName();
         String accessTokenParamName = filterConfig.getVerifyConfig().getAccessToken().getParamName();
-        ;
+
         Tokens tokens = new Tokens();
         boolean inHeader = false;
         boolean inQuery = false;
@@ -101,7 +100,7 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
                                        Tokens tokens,
                                        AkaGatewayProperties.FilterConfig filterConfig) {
 
-        String paramIn = filterConfig.getVerifyConfig().getTokenInRequest();
+        String paramIn = filterConfig.getVerifyConfig().getTokenInRequest().getIn();
         String refreshTokenParamName = filterConfig.getVerifyConfig().getRefreshToken().getParamName();
         String accessTokenParamName = filterConfig.getVerifyConfig().getAccessToken().getParamName();
 
@@ -191,7 +190,7 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
 
     private String setTokenInResponse(String responseBody,AkaGatewayProperties.FilterConfig filterConfig,
                                     Tokens tokens, ModifiedServerHttpResponse serverHttpResponse) {
-        String tokenIn = filterConfig.getVerifyConfig().getTokenInResponse();
+        String tokenIn = filterConfig.getVerifyConfig().getTokenInResponse().getIn();
         String accessTokenName = filterConfig.getVerifyConfig().getAccessToken().getParamName();
         String refreshTokenName = filterConfig.getVerifyConfig().getRefreshToken().getParamName();
         boolean inHeader = false;
@@ -232,21 +231,26 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
 
     private void processLogin(AkaGatewayProperties.FilterConfig filterConfig,
                               AkaGatewayProperties.LoginConfig loginConfig,
+                              AkaGatewayProperties.StoreConfig storeConfig,
                               ModifiedServerHttpRequest serverHttpRequest,
                               ModifiedServerHttpResponse serverHttpResponse) {
 
                 serverHttpResponse.setModifyBodyFunction((body) -> {
                     try {
                         String tokenBuilderClass = loginConfig.getTokenBuilderClass();
-                        TokenInfoBuilder tokenBuilder = (TokenInfoBuilder) Class.forName(tokenBuilderClass).getConstructor().newInstance();
-                        TokenInfo tokenInfo = tokenBuilder.build(serverHttpRequest, body);
-                        Tokens tokens = tokenAdmin.newTokens(
-                                tokenInfo,
-                                filterConfig
-                        );
-
-                        String  newBody=this.setTokenInResponse(body,filterConfig, tokens, serverHttpResponse);
-                        return newBody;
+                        LoginInfoBuilder tokenBuilder = (LoginInfoBuilder) Class.forName(tokenBuilderClass).getConstructor().newInstance();
+                        LoginInfo loginInfo = tokenBuilder.build(serverHttpRequest, body);
+                        if(loginInfo!=null){
+                            TokenInfo tokenInfo=TokenInfo.build(loginInfo);
+                            Tokens tokens = tokenAdmin.newTokens(
+                                    tokenInfo,
+                                    filterConfig,
+                                    storeConfig
+                            );
+                            String  newBody=this.setTokenInResponse(body,filterConfig, tokens, serverHttpResponse);
+                            return newBody;
+                        }
+                        return null;
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -255,6 +259,7 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
     }
 
     private void processLogout(AkaGatewayProperties.FilterConfig filterConfig,
+                               AkaGatewayProperties.StoreConfig storeConfig,
                                                       AkaGatewayProperties.LogoutConfig loginOutConfig,
                                                       ServerWebExchange exchange,
                                                       ModifiedServerHttpRequest serverHttpRequest,
@@ -275,7 +280,7 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
                     }
                     Tokens tokens = this.fetchTokens(serverHttpRequest, filterConfig);
 
-                    tokenAdmin.removeToken(filterConfig, tokens,logoutInfo);
+                    tokenAdmin.removeToken(filterConfig,storeConfig, tokens,logoutInfo);
                     //cookie置空
                     Tokens finalNewTokens=new Tokens();
                     finalNewTokens.setAccessToken("");
@@ -288,18 +293,23 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
     }
 
     private Mono<Void> handLogin(AkaGatewayProperties.FilterConfig filterConfig,
+                                 AkaGatewayProperties.StoreConfig storeConfig,
                                  ServerWebExchange exchange,
                                  GatewayFilterChain chain,
                                  ModifiedServerHttpRequest serverHttpRequest,
                                  ModifiedServerHttpResponse serverHttpResponse) {
         String uri = serverHttpRequest.getURI().getPath();
+        String context = this.contextPath;
+        uri = StringUtils.trimLeadingString(uri, context);
+
         AkaGatewayProperties.LoginConfig[] loginConfigs = filterConfig.getLogin();
         AkaGatewayProperties.LoginConfig loginConfig = null;
         for (int i = 0; i < loginConfigs.length; i++) {
             loginConfig = loginConfigs[i];
             String loginUrl = loginConfig.getUrl();
             if (pathMatcher.match(loginUrl, uri)) {
-                this.processLogin(filterConfig, loginConfig, serverHttpRequest,serverHttpResponse);
+                this.processLogin(filterConfig, loginConfig,storeConfig,
+                        serverHttpRequest,serverHttpResponse);
                 return this.result(chain, exchange, serverHttpRequest, serverHttpResponse);
             }
 
@@ -308,25 +318,64 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
     }
 
     private Mono<Void> handLogout(AkaGatewayProperties.FilterConfig filterConfig,
+                                  AkaGatewayProperties.StoreConfig storeConfig,
                                   ServerWebExchange exchange, GatewayFilterChain chain,
                                   ModifiedServerHttpRequest serverHttpRequest,
                                   ModifiedServerHttpResponse serverHttpResponse) {
 
         String uri = serverHttpRequest.getURI().getPath();
+        String context = this.contextPath;
+        uri = StringUtils.trimLeadingString(uri, context);
         AkaGatewayProperties.LogoutConfig logoutConfig = null;
         for (int i = 0; i < filterConfig.getLogout().length; i++) {
             logoutConfig = filterConfig.getLogout()[i];
             String logoutUrl = logoutConfig.getUrl();
             if (pathMatcher.match(logoutUrl, uri)) {
                 //清除redis或数据库里的refresh token
-                 processLogout(filterConfig, logoutConfig, exchange,serverHttpRequest,serverHttpResponse);
+                 processLogout(filterConfig,storeConfig,
+                         logoutConfig, exchange,serverHttpRequest,serverHttpResponse);
                 return this.result(chain, exchange, serverHttpRequest, serverHttpResponse);
 
             }
         }
         return null;
     }
+    private Mono<Void> handNewAccessToken(AkaGatewayProperties.FilterConfig filterConfig,
+                                  AkaGatewayProperties.StoreConfig storeConfig,
+                                  ServerWebExchange exchange, GatewayFilterChain chain,
+                                  ModifiedServerHttpRequest serverHttpRequest,
+                                  ModifiedServerHttpResponse serverHttpResponse) {
 
+        String uri = serverHttpRequest.getURI().getPath();
+        String tokenFetchURL=filterConfig.getVerifyConfig().getTokenInResponse().getAccessTokenFetchUrl();
+        String context = this.contextPath;
+        uri = StringUtils.trimLeadingString(uri, context);
+        if (pathMatcher.match(tokenFetchURL, uri)) {
+            try {
+                Tokens tokens = this.fetchTokens(serverHttpRequest, filterConfig);
+                Tokens newTokens = tokenAdmin.newAccessToken(
+                        tokens.getRefreshToken(),
+                        filterConfig,
+                        storeConfig
+                );
+                Tokens finalNewTokens = newTokens;
+                serverHttpResponse.setModifyBodyFunction(body -> {
+                    String newBody = this.setTokenInResponse(body, filterConfig, finalNewTokens, serverHttpResponse);
+                    return newBody;
+                });
+            }catch (Exception ex) {
+                log.error(ex + "", ex);
+                if (ex instanceof GateWayException) {
+                    GateWayException gateWayException = (GateWayException) ex;
+                    return getErrorVoidMono(serverHttpResponse, gateWayException.getResponseCode(), ex + "");
+                } else {
+                    return getErrorVoidMono(serverHttpResponse, ResponseCode.REFRESH_TOKEN_INVALID, ex + "");
+                }
+            }
+            return this.result(chain, exchange, serverHttpRequest, serverHttpResponse);
+        }
+        return null;
+    }
     public Mono<Void> result(GatewayFilterChain chain,
                              ServerWebExchange exchange, ModifiedServerHttpRequest serverHttpRequest,
                              ModifiedServerHttpResponse serverHttpResponse) {
@@ -341,7 +390,7 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
         String uri = serverHttpRequest.getURI().getPath();
         String context = this.contextPath;
         uri = StringUtils.trimLeadingString(uri, context);
-        LinkedHashMap<String, AkaGatewayProperties.FilterConfig> map = properties.getGateway();
+        LinkedHashMap<String, AkaGatewayProperties.FilterConfig> map = properties.getFilters();
         boolean find = false;
         AkaGatewayProperties.FilterConfig tmpfilterConfig = null;
         for (String key : map.keySet()) {
@@ -354,6 +403,9 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
                     break;
                 }
             }
+            if(find){
+                break;
+            }
         }
         if (!find) {
             return this.result(chain, exchange, serverHttpRequest, serverHttpResponse);
@@ -361,14 +413,22 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
         AkaGatewayProperties.FilterConfig filterConfig = tmpfilterConfig;
         //处理登录接口
         Mono<Void> ret = null;
-        ret = this.handLogin(filterConfig, exchange,
+        ret = this.handLogin(filterConfig, properties.getStoreConfig(),
+                exchange,
                 chain, serverHttpRequest, serverHttpResponse);
         if (ret != null) {
             return ret;
         }
         //处理登出接口
-        ret = this.handLogout(filterConfig, exchange,
+        ret = this.handLogout(filterConfig, properties.getStoreConfig(),
+                exchange,
                 chain,serverHttpRequest, serverHttpResponse);
+        if (ret != null) {
+            return ret;
+        }
+        ret=this.handNewAccessToken(filterConfig, properties.getStoreConfig(),
+                exchange,
+                chain, serverHttpRequest, serverHttpResponse);
         if (ret != null) {
             return ret;
         }
@@ -393,23 +453,29 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
         Tokens newTokens = null;
         try {
             TResult<TokenInfo> result=new TResult<TokenInfo>();
-            boolean valid=tokenAdmin.verifyToken(filterConfig, accessToken,result );
+            //accessToken是否过期
+            boolean isValid=tokenAdmin.verifyAccessToken(filterConfig, accessToken,result );
             jwtInf=result.getValue();
-            if(!valid){
+            if(!isValid){
                 if (StringUtils.hasText(refreshToken)) {
-                    jwtInf.setExpiredAt(null);
-                    newTokens = tokenAdmin.newAccessToken(
-                            jwtInf,
-                            refreshToken,
-                            filterConfig
-                    );
-                    Tokens finalNewTokens=newTokens;
-                    serverHttpResponse.setModifyBodyFunction(body->{
-                        String newBody=this.setTokenInResponse(body,filterConfig, finalNewTokens, serverHttpResponse);
-                        return newBody;
-                    });
-
-                } else {
+                    //jwtInf.setExpiredAt(null);
+                    Boolean auto=filterConfig.getVerifyConfig().getTokenInResponse().getAuto();
+                    if(auto!=null && auto) { //如果自动生成access_token
+                        ////会判断refresh_token是否过期
+                        newTokens = tokenAdmin.newAccessToken(
+                                refreshToken,
+                                filterConfig,
+                                properties.getStoreConfig()
+                        );
+                        Tokens finalNewTokens = newTokens;
+                        serverHttpResponse.setModifyBodyFunction(body -> {
+                            String newBody = this.setTokenInResponse(body, filterConfig, finalNewTokens, serverHttpResponse);
+                            return newBody;
+                        });
+                    }else{
+                        throw new GateWayException(ResponseCode.TOKEN_EXPIRED);
+                    }
+                }else {
                     throw new GateWayException(ResponseCode.TOKEN_EXPIRED);
                 }
             }
@@ -423,12 +489,6 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
                 return getErrorVoidMono(serverHttpResponse, ResponseCode.TOKEN_INVALID, ex + "");
             }
         }
-        String jwtInfo = "";
-        if (jwtInf != null) {
-            jwtInfo = ObjectUtils.toStringUseFastJson(jwtInf);
-        }
-
-        serverHttpRequest.setHeader(JWT_INFO_HEADER, jwtInfo);
         if (newTokens != null) {
             modifyTokensInRequest(serverHttpRequest,  newTokens, filterConfig);
         }

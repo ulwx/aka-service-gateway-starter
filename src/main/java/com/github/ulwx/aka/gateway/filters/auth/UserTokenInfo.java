@@ -1,7 +1,7 @@
 package com.github.ulwx.aka.gateway.filters.auth;
 
 import com.github.ulwx.aka.gateway.filters.TokenType;
-import com.github.ulwx.aka.gateway.filters.utils.TokenInfo;
+import com.github.ulwx.aka.gateway.filters.TokenInfo;
 import com.ulwx.tool.CTime;
 
 import java.util.Date;

@@ -43,7 +43,8 @@ public class MyPropertySourceFactory implements PropertySourceFactory {
             sourceMap.putAll(propertySource.getSource());
         }
         MapPropertySource finalPropertiesPropertySource =
-                new MapPropertySource("aka-application.yml",sourceMap);
+                new MapPropertySource(MyPropertySourceFactory.class.getName()+"."
+                        +resourceName,sourceMap);
         return  finalPropertiesPropertySource;
 
 

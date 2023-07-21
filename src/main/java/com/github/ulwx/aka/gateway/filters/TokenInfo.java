@@ -1,4 +1,6 @@
-package com.github.ulwx.aka.gateway.filters.utils;
+package com.github.ulwx.aka.gateway.filters;
+
+import com.ulwx.tool.SnowflakeIdWorker;
 
 import java.util.Date;
 
@@ -13,6 +15,18 @@ public class TokenInfo {
 	private String source="";
 	private Date expiredAt;
 
+	public static TokenInfo build(LoginInfo loginInfo){
+		TokenInfo tokenInfo=new TokenInfo();
+		tokenInfo.setDeviceID(loginInfo.getDeviceID());
+		tokenInfo.setExpiredAt(null);
+		tokenInfo.setExt(loginInfo.getExt());
+		tokenInfo.setPhone(loginInfo.getPhone());
+		tokenInfo.setSource(loginInfo.getSource());
+		tokenInfo.setUser(loginInfo.getUser());
+		tokenInfo.setUserType(loginInfo.getUserType());
+		tokenInfo.setJwtID(SnowflakeIdWorker.instance.nextId()+"");
+		return tokenInfo;
+	}
 	public Date getExpiredAt() {
 		return expiredAt;
 	}

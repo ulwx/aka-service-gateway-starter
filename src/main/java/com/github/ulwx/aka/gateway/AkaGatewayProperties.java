@@ -3,24 +3,30 @@ package com.github.ulwx.aka.gateway;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
-import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 
 
-@Component
 @ConfigurationProperties(AkaGatewayProperties.PROPERTIES_PREFX)
 public class AkaGatewayProperties implements InitializingBean {
-    public final static String  PROPERTIES_PREFX="aka";
+    public final static String  PROPERTIES_PREFX="aka.gateway";
     @NestedConfigurationProperty
-    private LinkedHashMap<String,FilterConfig> gateway=new LinkedHashMap<>();
+    private LinkedHashMap<String,FilterConfig> filters=new LinkedHashMap<>();
+    private StoreConfig storeConfig=new StoreConfig();
 
-    public LinkedHashMap<String, FilterConfig> getGateway() {
-        return gateway;
+    public LinkedHashMap<String, FilterConfig> getFilters() {
+        return filters;
     }
 
-    public void setGateway(LinkedHashMap<String, FilterConfig> gateway) {
-        this.gateway = gateway;
+    public void setFilters(LinkedHashMap<String, FilterConfig> filters) {
+        this.filters = filters;
+    }
+    public StoreConfig getStoreConfig() {
+        return storeConfig;
+    }
+
+    public void setStoreConfig(StoreConfig storeConfig) {
+        this.storeConfig = storeConfig;
     }
 
     public static class Matcher{
@@ -34,21 +40,69 @@ public class AkaGatewayProperties implements InitializingBean {
             this.paths = paths;
         }
     }
+
+    public static class TokenInRequest{
+        private String in="";
+
+        public String getIn() {
+            return in;
+        }
+
+        public void setIn(String in) {
+            this.in = in;
+        }
+    }
+    public static class TokenInResponse{
+        private String in="";
+        private Boolean auto=true;
+        private String accessTokenFetchUrl="";
+
+        public Boolean getAuto() {
+            return auto;
+        }
+
+        public void setAuto(Boolean auto) {
+            this.auto = auto;
+        }
+
+        public String getAccessTokenFetchUrl() {
+            return accessTokenFetchUrl;
+        }
+
+        public void setAccessTokenFetchUrl(String accessTokenFetchUrl) {
+            this.accessTokenFetchUrl = accessTokenFetchUrl;
+        }
+
+        public String getIn() {
+            return in;
+        }
+
+        public void setIn(String in) {
+            this.in = in;
+        }
+    }
     public static class  VerifyConfig{
         private String tokenType="jwt";
         private String secret="";
-        private String tokenInRequest="";
-        private String tokenInResponse="";
+        private TokenInRequest tokenInRequest=new TokenInRequest();
+        private TokenInResponse tokenInResponse=new TokenInResponse();
         private String[] excludePaths=new String[0];
         private AccessToken accessToken=new AccessToken();
         private RefreshToken refreshToken=new RefreshToken();
 
+        public void setTokenInRequest(TokenInRequest tokenInRequest) {
+            this.tokenInRequest = tokenInRequest;
+        }
 
-        public String getTokenInResponse() {
+        public TokenInResponse getTokenInResponse() {
             return tokenInResponse;
         }
 
-        public void setTokenInResponse(String tokenInResponse) {
+        public TokenInRequest getTokenInRequest() {
+            return tokenInRequest;
+        }
+
+        public void setTokenInResponse(TokenInResponse tokenInResponse) {
             this.tokenInResponse = tokenInResponse;
         }
 
@@ -68,13 +122,6 @@ public class AkaGatewayProperties implements InitializingBean {
             this.secret = secret;
         }
 
-        public String getTokenInRequest() {
-            return tokenInRequest;
-        }
-
-        public void setTokenInRequest(String tokenInRequest) {
-            this.tokenInRequest = tokenInRequest;
-        }
 
         public String[] getExcludePaths() {
             return excludePaths;
@@ -145,8 +192,6 @@ public class AkaGatewayProperties implements InitializingBean {
         private VerifyConfig verifyConfig=new VerifyConfig();
         private LoginConfig[] login=new LoginConfig[0];
         private LogoutConfig[] logout=new LogoutConfig[0];
-        private StoreConfig storeConfig=new StoreConfig();
-
         public Matcher getMatcher() {
             return matcher;
         }
@@ -161,14 +206,6 @@ public class AkaGatewayProperties implements InitializingBean {
 
         public void setVerifyConfig(VerifyConfig verifyConfig) {
             this.verifyConfig = verifyConfig;
-        }
-
-        public StoreConfig getStoreConfig() {
-            return storeConfig;
-        }
-
-        public void setStoreConfig(StoreConfig storeConfig) {
-            this.storeConfig = storeConfig;
         }
 
         public LoginConfig[] getLogin() {
@@ -211,7 +248,7 @@ public class AkaGatewayProperties implements InitializingBean {
     }
     public static class RedisConfig{
         private Boolean enable=false;
-        private String redisTemplateBeanName;
+        private String ds;
 
         public Boolean getEnable() {
             return enable;
@@ -221,12 +258,12 @@ public class AkaGatewayProperties implements InitializingBean {
             this.enable = enable;
         }
 
-        public String getRedisTemplateBeanName() {
-            return redisTemplateBeanName;
+        public String getDs() {
+            return ds;
         }
 
-        public void setRedisTemplateBeanName(String redisTemplateBeanName) {
-            this.redisTemplateBeanName = redisTemplateBeanName;
+        public void setDs(String ds) {
+            this.ds = ds;
         }
     }
     public static class MemoryConfig{

@@ -1,48 +1,79 @@
-
 #aka:
 #  gateway:
-#    myfilter:
-#      #使用ant path路径风格匹配
-#      matcher:
-#        #哪些URL需要进行经过此过滤器
-#        paths:
-#          - /sun/**
-#      verify-config:
-#        token-type: jwt
-#        #哪些URL不需要检测token是否存在和有效，使用ant path路径风格匹配
-#        exclude-paths:
-#        #         - abc.action
-#        #用于生成token的key
-#        secret: hong1mu2zhi3ruan4jexge_33@#&@sdffian5
-#        access-token:
-#          #携带acess token的参数名称
-#          param-name: access_token
-#          #秒为单位
-#          expire: 60
-#        refresh-token:
-#          #携带refresh token的参数名称
-#          param-name: refresh_token
-#          #秒为单位
-#          expire: 3000
-#        #请求里携带acess-token和 refresh-token的媒介，有header,query,cookie，可以有多个，以英文逗号分隔
-#        token-in-request: header,cookie,query
-#        #响应里携带token的媒介，有header,cookie,body。可以设置多个，以英文逗号分割。当某接口认证成功后会写入
-#        token-in-response: header,cookie,body
-#      store-config:
-#        memory:
-#          enable: true
-#      #       redis:
-#      #         enable: true
-#      login:
-#        - url: /**/usermod-User-gatewayLoginJSON.action
-#          #需要实现com.github.ulwx.aka.gateway.filters.TokenBuilder接口，
-#          #根据请求和响应信息生成token信息（access-token，refresh-token等）
-#          token-builder-class: com.example.gateway.MyTokenBuilder
+#    filters:
+#      myfilter:
+#        #使用ant path路径风格匹配
+#        matcher:
+#          #哪些URL需要进行经过此过滤器
+#          paths:
+#            - /sun/**
+#        verify-config:
+#          token-type: jwt
+#          #哪些URL不需要检测token是否存在和有效，使用ant path路径风格匹配
+#          exclude-paths:
+#          #- abc.action
+#          #用于生成token的key
+#          secret: hong1mu2zhi3ruan4jexge_33@#&@sdffian5
+#          access-token:
+#            #携带acess token的参数名称
+#            param-name: access_token
+#            #秒为单位
+#            expire: 30
+#          refresh-token:
+#            #携带refresh token的参数名称
+#            param-name: refresh_token
+#            #秒为单位
+#            expire: 60
+#          #请求里携带access-token和 refresh-token的媒介有header,query,cookie三种。可以有多个组合，以英文逗号分隔
+#          token-in-request:
+#            in: header,cookie,query
+#          token-in-response:
+#            in: header,cookie,body  #响应里携带token的媒介有header,cookie,body三种。可以设置多个，以英文逗号分割。当某接口认证成功后会写入
+#            auto: true  #true表示如果access-token过期，会根据refresh-token(未过期的情况下)自动生成。如果为false，则不能自动生成
+#            access-token-fetch-url: /**/getTokenJSON.action  #根据refresh-token(未过期的情况下)获取access-token
+#        login:
+#          - url: /**/usermod-User-gatewayLoginJSON.action
+#            #需要实现com.github.ulwx.aka.gateway.filters.TokenBuilder接口，
+#            #根据转发的请求或响应信息生成token信息（access-token，refresh-token等）
+#            token-builder-class: com.example.gateway.MyTokenBuilder
 #
-#      logout:
-#        - url: /**/usermod-User-gatewayLogoutJSON.action
-#          #获取userid，sourceid，refresh-token信息，以帮助清理存储里的token
-#          #需实现com.github.ulwx.aka.gateway.filters.FetchLogoutCondition接口
-#          fetch-logout-condition: com.example.gateway.MyFetchLogoutCondition
+#        logout:
+#          - url: /**/usermod-User-gatewayLogoutJSON.action
+#            #获取userid，sourceid，refresh-token信息，以帮助清理存储里的token
+#            #需实现com.github.ulwx.aka.gateway.filters.FetchLogoutCondition接口
+#            fetch-logout-condition: com.example.gateway.MyFetchLogoutCondition
+#    store-config:
+#      memory:
+#        enable: false
+#      redis:
+#        enable: true
+#        ds: default #<redis数据源名称>， 需要依赖aka-dbutils-spring-redis-starter，它定义了redis数据源名称，如下所示。
+#  springboot:
+#    redis:
+#      default:
+#        database: 1
+#        host:
+#        password:
+#        port: 6379
+#        timeout: 60000
+#        lettuce:
+#          pool:
+#            max-active: -1
+#            max-idle: -1
+#            max-wait: -1
+#            min-idle: -1
+#      one:
+#        database: 1
+#        host:
+#        port: 6379
+#        password:
+#        timeout: 60000
+#        lettuce:
+#          pool:
+#            max-active: -1 #连接池最大连接数（使用负值表示没有限制
+#            max-idle: -1 #连接池中的最大空闲连接数
+#            max-wait: -1 #连接池最大阻塞等待时间，（使用负值表示没有限制），单位秒，默认10秒
+#            min-idle: -1 #连接池中的最小空闲连接数
+#            timeBetweenEvictionRuns: 60s # 单位秒，默认60秒，空闲连接回收间隔，为负时不创建空闲回收线程，为正时表示定时空闲连接回收间隔
 #
 #
