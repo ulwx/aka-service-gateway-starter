@@ -8,8 +8,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfigurationExcludeFilter;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
+import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.web.reactive.error.ErrorWebFluxAutoConfiguration;
 import org.springframework.boot.context.TypeExcludeFilter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -33,6 +35,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
         })
 @EnableConfigurationProperties(AkaGatewayProperties.class)
 @AutoConfigureAfter(AkaRedisAutoConfiguration.class)
+@AutoConfigureBefore(ErrorWebFluxAutoConfiguration.class)
 public class AkaGatewayAutoConfiguration {
 
     @Autowired
@@ -73,6 +76,12 @@ public class AkaGatewayAutoConfiguration {
 
         AkaRedisListener akaRedisListener=new AkaRedisListener(listenerContainer);
         return akaRedisListener;
+    }
+
+    @Bean
+    public MyDefaultErrorAttributes errorAttributes() {
+        return new MyDefaultErrorAttributes();
+
     }
 
 }

@@ -2,7 +2,7 @@ package com.github.ulwx.aka.gateway.filters;
 
 public enum ResponseCode {
 
-    UNKNOWN_ERROR(2000,"错误"),
+    GATEWAY_ERROR(2000,"网关错误"),
     TOKEN_INVALID(2002,"无效的Token"),
     TOKEN_SIGNATURE_INVALID(2003,"无效的签名"),
     TOKEN_EXPIRED(2004,"token已过期"),

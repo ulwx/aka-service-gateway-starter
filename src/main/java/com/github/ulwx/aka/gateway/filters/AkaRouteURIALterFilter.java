@@ -18,14 +18,17 @@ import java.util.Map;
 
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR;
 
+/**
+ * 参考RouteToRequestUrlFilter实现
+ */
 @Component("com.github.ulwx.aka.gateway.filters.AkaRouteURIALterFilter")
 public class AkaRouteURIALterFilter implements GlobalFilter, Ordered {
 
-	public static final int ROUTE_TO_URL_FILTER_ORDER = -101;
+	public static final int ORDER = Integer.MIN_VALUE;
 	private static final Log log = LogFactory.getLog(AkaRouteURIALterFilter.class);
 	@Override
 	public int getOrder() {
-		return ROUTE_TO_URL_FILTER_ORDER;
+		return ORDER;
 	}
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -36,7 +39,6 @@ public class AkaRouteURIALterFilter implements GlobalFilter, Ordered {
 		log.trace("AkaRouteURIALterFilter start");
 
 		URI routeUri = route.getUri();
-
 
 		//ServerWebExchangeUtils.URI_TEMPLATE_VARIABLES_ATTRIBUTE
 		Map<String,String> map=exchange.getAttribute(ServerWebExchangeUtils.URI_TEMPLATE_VARIABLES_ATTRIBUTE);

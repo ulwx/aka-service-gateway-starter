@@ -1,4 +1,4 @@
-package com.github.ulwx.aka.gateway.filters;
+package com.github.ulwx.aka.gateway.filters.model;
 
 public class Status {
     public static final int SUC = 1;

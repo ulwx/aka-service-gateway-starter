@@ -2,6 +2,7 @@ package com.github.ulwx.aka.gateway.filters;
 
 import com.alibaba.fastjson.JSON;
 import com.github.ulwx.aka.gateway.AkaGatewayProperties;
+import com.github.ulwx.aka.gateway.filters.model.CbResult;
 import com.ulwx.tool.*;
 import com.ulwx.type.TResult;
 import org.apache.log4j.Logger;
@@ -235,7 +236,7 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
                               ModifiedServerHttpRequest serverHttpRequest,
                               ModifiedServerHttpResponse serverHttpResponse) {
 
-                serverHttpResponse.setModifyBodyFunction((body) -> {
+                serverHttpResponse.modifyBody((body,contentType) -> {
                     try {
                         String tokenBuilderClass = loginConfig.getTokenBuilderClass();
                         LoginInfoBuilder tokenBuilder = (LoginInfoBuilder) Class.forName(tokenBuilderClass).getConstructor().newInstance();
@@ -265,8 +266,8 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
                                                       ModifiedServerHttpRequest serverHttpRequest,
                                                       ModifiedServerHttpResponse serverHttpResponse) {
 
-        serverHttpResponse.setModifyBodyFunction(
-                body -> {
+        serverHttpResponse.modifyBody(
+                (body,contentType) -> {
                     String classNmae = loginOutConfig.getFetchLogoutCondition();
                     LogoutCondition logoutInfo = new LogoutCondition();
                     try {
@@ -345,7 +346,6 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
                                   ServerWebExchange exchange, GatewayFilterChain chain,
                                   ModifiedServerHttpRequest serverHttpRequest,
                                   ModifiedServerHttpResponse serverHttpResponse) {
-
         String uri = serverHttpRequest.getURI().getPath();
         String tokenFetchURL=filterConfig.getVerifyConfig().getTokenInResponse().getAccessTokenFetchUrl();
         String context = this.contextPath;
@@ -359,7 +359,7 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
                         storeConfig
                 );
                 Tokens finalNewTokens = newTokens;
-                serverHttpResponse.setModifyBodyFunction(body -> {
+                serverHttpResponse.modifyBody((body,contentType) -> {
                     String newBody = this.setTokenInResponse(body, filterConfig, finalNewTokens, serverHttpResponse);
                     return newBody;
                 });
@@ -384,9 +384,14 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        ModifiedServerHttpRequest serverHttpRequest = new ModifiedServerHttpRequest(exchange);
+
         ModifiedServerHttpResponse serverHttpResponse =
                 new ModifiedServerHttpResponse(exchange, String.class, String.class);
+
+        ModifiedServerHttpRequest serverHttpRequest = new ModifiedServerHttpRequest(exchange,
+                chain,serverHttpResponse,
+                null,
+                null);//new ModifiedServerHttpRequest(exchange);
         String uri = serverHttpRequest.getURI().getPath();
         String context = this.contextPath;
         uri = StringUtils.trimLeadingString(uri, context);
@@ -458,7 +463,6 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
             jwtInf=result.getValue();
             if(!isValid){
                 if (StringUtils.hasText(refreshToken)) {
-                    //jwtInf.setExpiredAt(null);
                     Boolean auto=filterConfig.getVerifyConfig().getTokenInResponse().getAuto();
                     if(auto!=null && auto) { //如果自动生成access_token
                         ////会判断refresh_token是否过期
@@ -468,7 +472,7 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
                                 properties.getStoreConfig()
                         );
                         Tokens finalNewTokens = newTokens;
-                        serverHttpResponse.setModifyBodyFunction(body -> {
+                        serverHttpResponse.modifyBody((body,contentType) -> {
                             String newBody = this.setTokenInResponse(body, filterConfig, finalNewTokens, serverHttpResponse);
                             return newBody;
                         });
@@ -508,7 +512,7 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
 
     private Mono<Void> getErrorVoidMono(ServerHttpResponse serverHttpResponse, ResponseCode responseCode, String errMsg) {
         serverHttpResponse.getHeaders().add("Content-Type", "application/json;charset=UTF-8");
-        ResponseResult responseResult = null;
+        CbResult responseResult = null;
         if (StringUtils.hasText(errMsg)) {
             responseResult = ResponseResult.error(responseCode.getCode(), responseCode.getMessage()
                     + "[" + errMsg + "]");
@@ -521,6 +525,7 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return -100;
+        return ORDER;
     }
+    public static final int ORDER = Integer.MIN_VALUE+2;
 }

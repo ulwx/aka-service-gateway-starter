@@ -6,8 +6,8 @@ public class GateWayException extends RuntimeException{
     private ResponseCode responseCode;
 
     public GateWayException(Exception exception) {
-        super(ResponseCode.UNKNOWN_ERROR.getMessage()+"["+ exception+"]");
-        responseCode=ResponseCode.UNKNOWN_ERROR;
+        super(ResponseCode.GATEWAY_ERROR.getMessage()+"["+ exception+"]");
+        responseCode=ResponseCode.GATEWAY_ERROR;
 
 
     }

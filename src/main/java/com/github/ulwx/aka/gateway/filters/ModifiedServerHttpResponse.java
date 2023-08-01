@@ -1,6 +1,7 @@
 package com.github.ulwx.aka.gateway.filters;
 
 import com.alibaba.fastjson.JSON;
+import com.github.ulwx.aka.gateway.filters.model.CbResult;
 import org.apache.log4j.Logger;
 import org.reactivestreams.Publisher;
 import org.springframework.cloud.gateway.filter.factory.rewrite.CachedBodyOutputMessage;
@@ -29,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.util.function.Function.identity;
@@ -44,16 +44,18 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.O
      private final Class inClass;
      private final Class outClass;
      private final BiFunction<ServerWebExchange,Object,Mono>  modifyFunction;
-     private Function<String,String> function;
-
+     private BiFunction<String, String,String>  function;
      /**
       * 只能消费一次
       * @param function
       */
-     public void setModifyBodyFunction(Function<String, String> function) {
+     public void modifyBody(BiFunction<String, String,String>  function) {
          this.function = function;
      }
 
+     public BiFunction<String, String,String> getModifyBodyFunction(){
+         return this.function;
+     }
      public ModifiedServerHttpResponse(ServerWebExchange exchange,
                                        Class<?> inClass,
                                        Class<?> outClass){
@@ -62,15 +64,12 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.O
         this.inClass=inClass;
         this.outClass=outClass;
         this.modifyFunction= (webExchange,body)->{
-            String ret=null;
+            String ret="";
             try {
-                log.debug("before=============");
-                log.debug(body);
-                log.debug("=============");
-                ret = function.apply((String) body);
-                log.debug("after+++++++++++++");
-                log.debug(ret);
-                log.debug("+++++++++++++");
+                if(function!=null) {
+                    String  contentType=this.getDelegate().getHeaders().getContentType().toString();
+                    ret = function.apply((String) body,contentType);
+                }
                 if (ret == null) {
                     return Mono.just(body);
                 } else {
@@ -84,7 +83,7 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.O
                 }else{
                     gateWayException=new GateWayException(e);
                 }
-                ResponseResult responseResult= ResponseResult.error(gateWayException.getResponseCode().getCode(),
+                CbResult responseResult= ResponseResult.error(gateWayException.getResponseCode().getCode(),
                         gateWayException.getMessage());
                 return  Mono.just(JSON.toJSONString(responseResult));
 
