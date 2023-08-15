@@ -6,6 +6,7 @@
 	<artifactId>aka-service-gateway-starter</artifactId>
 	<name>aka-service-gateway-starter</name>
 	<description>aka-service-gateway-starter</description>
+	<version>2.1-SNAPSHOT</version>
 	<parent>
 		<groupId>com.github.ulwx</groupId>
 		<artifactId>aka-common-parent</artifactId>
