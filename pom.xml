@@ -4,8 +4,6 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.github.ulwx</groupId>
 	<artifactId>aka-service-gateway-starter</artifactId>
-	<name>aka-service-gateway-starter</name>
-	<description>aka-service-gateway-starter</description>
 	<version>2.1-SNAPSHOT</version>
 	<parent>
 		<groupId>com.github.ulwx</groupId>
@@ -14,6 +12,11 @@
 		<relativePath>../aka-common-parent/pom.xml</relativePath>
 	</parent>
 	<dependencies>
+		<dependency>
+			<groupId>com.github.ulwx</groupId>
+			<artifactId>aka-common-cloud</artifactId>
+			<version>2.1-SNAPSHOT</version>
+		</dependency>
 		<dependency>
 			<groupId>com.auth0</groupId>
 			<artifactId>java-jwt</artifactId>
@@ -26,15 +29,13 @@
 		<dependency>
 			<artifactId>aka-common-tool</artifactId>
 			<groupId>com.github.ulwx</groupId>
+
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-loadbalancer</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>com.github.ulwx</groupId>
-			<artifactId>aka-common-cloud</artifactId>
-		</dependency>
+
 		<dependency>
 		<artifactId>aka-dbutils-spring-redis-starter</artifactId>
 		<groupId>com.github.ulwx</groupId>
@@ -60,14 +61,6 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-				<version>${spring.boot.version}</version>
-			</plugin>
-		</plugins>
-	</build>
+
 
 </project>

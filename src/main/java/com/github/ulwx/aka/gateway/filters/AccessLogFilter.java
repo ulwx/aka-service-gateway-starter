@@ -5,8 +5,10 @@ import com.ulwx.tool.CTime;
 import com.ulwx.tool.ObjectUtils;
 import com.ulwx.tool.SnowflakeIdWorker;
 import com.ulwx.tool.StringUtils;
+import org.apache.skywalking.apm.toolkit.trace.TraceContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -43,9 +45,9 @@ public class AccessLogFilter implements GlobalFilter, Ordered {
                     return body;
                 },
                 (gwl)->{
-                   log.debug("log+++");
+                   log.debug("log+++"+ TraceContext.traceId());
                    log.debug(ObjectUtils.toString(gwl));
-                    log.debug("log---");
+                    log.debug("log---"+ MDC.get("tid"));
                 });
 
         return serverHttpRequest.forward();
