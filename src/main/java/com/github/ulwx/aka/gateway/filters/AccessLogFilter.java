@@ -6,6 +6,7 @@ import com.ulwx.tool.ObjectUtils;
 import com.ulwx.tool.SnowflakeIdWorker;
 import com.ulwx.tool.StringUtils;
 import org.apache.skywalking.apm.toolkit.trace.TraceContext;
+import org.apache.skywalking.apm.toolkit.webflux.WebFluxSkyWalkingOperators;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -23,8 +24,10 @@ public class AccessLogFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         Mono<Void> ret=null;
         GateWayLog gwlog=new GateWayLog();
+        String traceId = WebFluxSkyWalkingOperators.continueTracing(exchange, TraceContext::traceId);
         ModifiedServerHttpResponse serverHttpResponse =
                 new ModifiedServerHttpResponse(exchange, String.class, String.class);
+        serverHttpResponse.getHeaders().set("x-trace-id", traceId);
         ModifiedServerHttpRequest serverHttpRequest = new ModifiedServerHttpRequest(exchange,
                 chain,serverHttpResponse,
                 (body,contentType)->{
