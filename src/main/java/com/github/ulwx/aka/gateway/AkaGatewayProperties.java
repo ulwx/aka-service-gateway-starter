@@ -31,6 +31,15 @@ public class AkaGatewayProperties implements InitializingBean {
 
     public static class Matcher{
         private String[] paths=new String[0];
+        private String[] routes=new String[0];
+
+        public String[] getRoutes() {
+            return routes;
+        }
+
+        public void setRoutes(String[] routes) {
+            this.routes = routes;
+        }
 
         public String[] getPaths() {
             return paths;

@@ -5,6 +5,9 @@
 #      myfilter:
 #        #使用ant path路径风格匹配
 #        matcher:
+#          #匹配哪些route-id， routes和paths是并且的关系
+#          routes:
+#            - aka-services
 #          #哪些URL需要进行经过此过滤器
 #          paths:
 #            - /sun/**

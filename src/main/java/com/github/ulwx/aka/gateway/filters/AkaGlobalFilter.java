@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.cloud.gateway.route.Route;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpCookie;
@@ -26,6 +27,8 @@ import reactor.core.publisher.Mono;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+
+import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR;
 
 @Component("com.github.ulwx.aka.gateway.filters.AkaGlobalFilter")
 public class AkaGlobalFilter implements GlobalFilter, Ordered {
@@ -393,26 +396,48 @@ public class AkaGlobalFilter implements GlobalFilter, Ordered {
                 null,
                 null);//new ModifiedServerHttpRequest(exchange);
         String uri = serverHttpRequest.getURI().getPath();
+        Route route = exchange.getAttribute(GATEWAY_ROUTE_ATTR);
         String context = this.contextPath;
         uri = StringUtils.trimLeadingString(uri, context);
         LinkedHashMap<String, AkaGatewayProperties.FilterConfig> map = properties.getFilters();
-        boolean find = false;
+        boolean find1 = false;
+        boolean find2= false;
         AkaGatewayProperties.FilterConfig tmpfilterConfig = null;
         for (String key : map.keySet()) {
+            find1 = false;
+            find2 = false;
             tmpfilterConfig = map.get(key);
             AkaGatewayProperties.Matcher matcher = tmpfilterConfig.getMatcher();
-            String[] urls = matcher.getPaths();
-            for (String url : urls) {
-                if (pathMatcher.match(url, uri)) {
-                    find = true;
-                    break;
+            //匹配routes
+            String[] routes=matcher.getRoutes();
+            if(routes.length>0) {
+                for (String rt : routes) {
+                    if (pathMatcher.match(rt, route.getId())) {
+                        find1 = true;
+                        break;
+                    }
                 }
+            }else{
+                find1=true;
             }
-            if(find){
+
+            //匹配paths
+            String[] urls = matcher.getPaths();
+            if(urls.length>0) {
+                for (String url : urls) {
+                    if (pathMatcher.match(url, uri)) {
+                        find2 = true;
+                        break;
+                    }
+                }
+            }else{
+                find2=true;
+            }
+            if(find1 && find2){
                 break;
             }
         }
-        if (!find) {
+        if (!find1 || !find2) {
             return this.result(chain, exchange, serverHttpRequest, serverHttpResponse);
         }
         AkaGatewayProperties.FilterConfig filterConfig = tmpfilterConfig;
