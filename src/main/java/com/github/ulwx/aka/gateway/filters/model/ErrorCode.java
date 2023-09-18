@@ -7,6 +7,7 @@ public class ErrorCode {
     public static final int NO_ERROR = 0;
     public static final int COMMON_ERROR = 999;
     public static final int VIEW_ERROR = 998;
+    public static final int GW_BLOCK_EXCEPTION = 990;
     public static Map<Integer,String> errors=new HashMap<Integer,String>();
 
     static{
